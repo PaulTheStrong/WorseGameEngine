@@ -19,7 +19,7 @@ public class Model {
     Matrix4f model;
 
     private void setModel() {
-        model = translation.multiply(scale).multiply(rotation);
+        model = rotation.multiply(scale).multiply(translation);
     }
 
     public Model(Matrix4f translation, Matrix4f rotation, Matrix4f scale, List<Vector4f> vertices, List<List<Vector3i>> faces) {

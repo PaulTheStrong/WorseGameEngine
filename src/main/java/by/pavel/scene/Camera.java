@@ -12,8 +12,8 @@ import static java.lang.Math.sin;
 public class Camera {
 
     private float speed;
-    private float yaw = 45;
-    private float pitch = 45;
+    private float yaw = 90;
+    private float pitch = 0;
 
     private Vector4f eye;
     private Vector4f target;

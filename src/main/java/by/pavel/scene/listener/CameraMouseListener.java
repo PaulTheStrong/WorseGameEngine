@@ -17,32 +17,20 @@ public class CameraMouseListener implements MouseMotionListener, MouseListener {
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        System.out.printf("Mouse dragged%n");
-        if (isMoving) {
-            int dx = e.getX() - prevX;
-            int dy = e.getY() - prevY;
-            System.out.println(dx);
-            System.out.println(dy);
-            prevX += dx;
-            prevY += dy;
-            camera.setPitch(camera.getPitch() - dy / 5.f);
-            camera.setYaw(camera.getYaw() + dx / 5.f);
-        }
+        int dx = e.getX() - prevX;
+        int dy = e.getY() - prevY;
+        System.out.println(dx);
+        System.out.println(dy);
+        prevX += dx;
+        prevY += dy;
+        camera.setPitch(camera.getPitch() - dy / 5.f);
+        camera.setYaw(camera.getYaw() + dx / 5.f);
+
+        System.out.printf("Pitch: %f, Yaw: %f", camera.getPitch(), camera.getYaw());
     }
 
     @Override
     public void mouseMoved(MouseEvent e) {
-        System.out.printf("Mouse moved%n");
-        if (isMoving) {
-            int dx = e.getX() - prevX;
-            int dy = e.getY() - prevY;
-            System.out.println(dx);
-            System.out.println(dy);
-            prevX += dx;
-            prevY += dy;
-            camera.setPitch(camera.getPitch() - dy / 5.f);
-            camera.setYaw(camera.getYaw() + dx / 5.f);
-        }
     }
 
     @Override

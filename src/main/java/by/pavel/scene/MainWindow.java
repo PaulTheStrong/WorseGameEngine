@@ -48,7 +48,7 @@ public class MainWindow {
 
         Model model = new Model(
                 Matrix4f.translation(new Vector4f(0, 0, 10)),
-                Matrix4f.rotation(new Vector4f(0, 0, 0)),
+                Matrix4f.rotation(new Vector4f(0, 135, 0)),
                 Matrix4f.scale(new Vector4f(1.0f, 1.0f, 1.0f)),
                 objData.getVertices(),
                 objData.getSurfaces());

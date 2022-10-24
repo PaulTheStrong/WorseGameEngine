@@ -53,7 +53,7 @@ public class Vector4f {
                 y * other.z - z * other.y,
                 z * other.x - x * other.z,
                 x * other.y - y * other.x,
-                1);
+                w);
     }
 
     public static Vector4f normalize(Vector4f v) {
