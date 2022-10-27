@@ -10,7 +10,6 @@ import java.awt.event.KeyListener;
 public class KeyboardKeyListener implements KeyListener {
 
     private final Camera camera;
-
     @Override
     public void keyTyped(KeyEvent e) {
 

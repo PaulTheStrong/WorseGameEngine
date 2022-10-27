@@ -1,5 +1,6 @@
 package by.pavel.parser;
 
+import by.pavel.math.Vector3f;
 import by.pavel.math.Vector3i;
 import by.pavel.math.Vector4f;
 import lombok.SneakyThrows;
@@ -17,9 +18,9 @@ public class OBJParser {
     @SneakyThrows
     public OBJData parseFile(String filename) {
         List<String> lines = Files.readAllLines(Paths.get(filename));
-        List<Vector4f> vertices = new ArrayList<>();
+        List<Vector3f> vertices = new ArrayList<>();
         List<Vector4f> textures = new ArrayList<>();
-        List<Vector4f> normals = new ArrayList<>();
+        List<Vector3f> normals = new ArrayList<>();
         List<Vector4f> vertexParams = new ArrayList<>();
         List<List<Vector3i>> surfaces = new ArrayList<>();
 
@@ -32,14 +33,14 @@ public class OBJParser {
             }
             switch (symbol) {
                 case "v": {
-                    float[] f = {0, 0, 0, 1};
+                    float[] f = {0, 0, 0};
                     int i = 0;
                     while (scanner.hasNext()) {
                         float value = Float.parseFloat(scanner.next());
                         f[i] = value;
                         i++;
                     }
-                    vertices.add(new Vector4f(f[0], f[1], f[2], f[3]));
+                    vertices.add(new Vector3f(f[0], f[1], f[2]));
                     break;
                 }
                 case "vt": {
@@ -61,7 +62,7 @@ public class OBJParser {
                         f[i] = value;
                         i++;
                     }
-                    normals.add(new Vector4f(f[0], f[1], f[2]));
+                    normals.add(new Vector3f(f[0], f[1], f[2]));
                     break;
                 }
                 case "vp": {
@@ -79,7 +80,7 @@ public class OBJParser {
                     List<Vector3i> tmp = new ArrayList<>();
                     while (scanner.hasNext()) {
                         symbol = scanner.next();
-                        int[] params = {0, 0, 0};
+                        int[] params = {Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE};
                         int ind = 0;
                         int number = 0;
                         boolean sign = false;
@@ -100,6 +101,7 @@ public class OBJParser {
                                 }
                             }
                         }
+                        params[ind] = sign ? -number : number;
                         if (params[0] < 0) params[0] = vertices.size() + params[0] + 1;
                         if (params[1] < 0) params[1] = textures.size() + params[1] + 1;
                         if (params[2] < 0) params[2] = normals.size() + params[2] + 1;

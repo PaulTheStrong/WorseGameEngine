@@ -1,8 +1,10 @@
 package by.pavel.scene;
 
 import by.pavel.math.Matrix4f;
+import by.pavel.math.Vector3f;
 import by.pavel.math.Vector3i;
 import by.pavel.math.Vector4f;
+import by.pavel.math.VertexData;
 import by.pavel.parser.OBJData;
 import lombok.Getter;
 
@@ -12,15 +14,27 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static by.pavel.math.Vector3f.normalize3;
 import static by.pavel.math.Vector4f.normalize;
+
 import static java.lang.Math.abs;
 import static java.lang.Math.cos;
 import static java.lang.Math.min;
+import static java.lang.Math.max;
+import static java.lang.Math.pow;
+import static java.lang.Math.round;
 
 public class Screen {
 
-    static final Vector4f lightDirection = new Vector4f(2, -1, 1);
+    static final Vector4f lightPosition = new Vector4f(10, 20, -20, 0);
+
     private static final double COS_30 = cos(Math.PI / 180.f * 30.f);
+    private static final int BLUE = colorOf(0, 0, 255, 255);
+    private static final int GREEN = colorOf(0, 255, 0, 255);
+    private static final int RED = colorOf(255, 0, 0, 255);
+    private static final float DIFFUSE_INTENCITY = 0.5f;
+    private static final float SPECULAR_INTENCITY = 0.5f;
+    private static final float SHINYNESS = 1f;
 
     private final int width;
     private final int height;
@@ -67,181 +81,142 @@ public class Screen {
         return ((a & 0xff) << 24) | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
     }
 
-    private Map<Integer, Integer> lineX(int x1, int x2, int y1, int y2) {
-        Map<Integer, Integer> result = new HashMap<>();
-        int deltaX = abs(x2 - x1); // 2
-        int deltaY = abs(y2 - y1); // 6
-        int signX = x1 < x2 ? 1 : -1; // -1
-        int signY = y1 < y2 ? 1 : -1; // -1
-
-        int error = deltaX - deltaY;
-
-        while (x1 != x2 || y1 != y2) {
-            result.putIfAbsent(y1, x1);
-            int error2 = error * 2; // -8
-            if (error2 > -deltaY) {
-                error -= deltaY;
-                x1 += signX;
-            }
-            if (error2 < deltaX) {
-                error += deltaX;
-                y1 += signY;
-            }
-        }
-        return result;
+    public static Vector4f rgbaVec(int rgba) {
+        int r = (rgba >> 16) & 0xff;
+        int g = (rgba >> 8) & 0xff;
+        int b = rgba & 0xff;
+        int a = (rgba >> 25) & 0xff;
+        return new Vector4f(r / 255f, g / 255f, b / 255f, a / 255f);
     }
 
-    public void drawLine(int x1, int x2, int y1, int y2, int color, float z) {
-        int deltaX = abs(x2 - x1); // 2
-        int deltaY = abs(y2 - y1); // 6
-        int signX = x1 < x2 ? 1 : -1; // -1
-        int signY = y1 < y2 ? 1 : -1; // -1
-
-        if (abs(deltaX) > width * 4 || abs(deltaY) > height * 4) {
-            return;
-        }
-
-        int error = deltaX - deltaY;
-
-        drawPixel(x1, y1, color, z);
-        while (x1 != x2 || y1 != y2) {
-            drawPixel(x1, y1, color, z);
-            int error2 = error * 2; // -8
-            if (error2 > -deltaY) {
-                error -= deltaY;
-                x1 += signX;
-            }
-            if (error2 < deltaX) {
-                error += deltaX;
-                y1 += signY;
-            }
-        }
+    public static int colorOf(Vector4f rgba) {
+        return colorOf(min((int) (rgba.x * 255.f), 255), min((int) (rgba.y * 255.f), 255), min((int) (rgba.z * 255.f), 255), min((int) (rgba.w * 255.f), 255));
     }
+
 
     public void drawOBJ(Model model) {
         Matrix4f modelMatr = model.getModel();
-        Matrix4f prjMatrix = projection.getProjectionMatrix();
-        Matrix4f viewMatrix = camera.getViewMatrix();
-        Matrix4f mvp = modelMatr.multiply(viewMatrix).multiply(prjMatrix);
 
-        List<Vector4f> vertices = model.getVertices();
+        List<Vector3f> vertices = model.getVertices();
+        List<Vector3f> normals = model.getNormals();
         for (List<Vector3i> face : model.getFaces()) {
             int verticesPerFace = face.size();
             for (int i = 1; i < verticesPerFace - 1; i++) {
-                Vector4f v1 = vertices.get(face.get(0).x);
-                Vector4f v2 = vertices.get(face.get(i).x);
-                Vector4f v3 = vertices.get(face.get(i + 1).x);
-                Vector4f v1Mvp = mvp.multiply(v1);
-                Vector4f v2Mvp = mvp.multiply(v2);
-                Vector4f v3Mvp = mvp.multiply(v3);
-                Vector4f v1M = modelMatr.multiply(v1);
-                Vector4f v2M = modelMatr.multiply(v2);
-                Vector4f v3M = modelMatr.multiply(v3);
-                if (shouldDraw(v1Mvp, v2Mvp, v3Mvp)) {
-                    drawTriangle(v1Mvp, v2Mvp, v3Mvp, getColorWithLight(v1M, v2M, v3M));
-                }
+                Vector3f v1 = vertices.get(face.get(0).x);
+                Vector3f v2 = vertices.get(face.get(i).x);
+                Vector3f v3 = vertices.get(face.get(i + 1).x);
+
+                Vector3f v1n = normals.get(face.get(0).z);
+                Vector3f v2n = normals.get(face.get(i).z);
+                Vector3f v3n = normals.get(face.get(i + 1).z);
+
+                int randomColor = colorOf(255, 179, 0, 255);
+                VertexData vd1 = new VertexData(v1, v1n, modelMatr, randomColor);
+                VertexData vd2 = new VertexData(v2, v2n, modelMatr, randomColor);
+                VertexData vd3 = new VertexData(v3, v3n, modelMatr, randomColor);
+                drawTriangle(vd1, vd2, vd3);
             }
         }
     }
 
-    private boolean shouldDraw(Vector4f v1, Vector4f v2, Vector4f v3) {
+    private Vector4f divideByW(Vector4f v) {
+        return new Vector4f(v.x / v.w, v.y / v.w, v.z, 1);
+    }
+
+    private boolean isBackface(VertexData vd1, VertexData vd2, VertexData vd3) {
+        Vector4f v1 = vd1.transform.multiply(new Vector4f(vd1.position, 1));
+        Vector4f v2 = vd2.transform.multiply(new Vector4f(vd2.position, 1));
+        Vector4f v3 = vd3.transform.multiply(new Vector4f(vd3.position, 1));
         Vector4f side1 = new Vector4f(v2.x - v1.x, v2.y - v1.y, v2.z - v1.z, 0);
         Vector4f side2 = new Vector4f(v3.x - v1.x, v3.y - v1.y, v3.z - v1.z, 0);
-        Vector4f triangleNormal = normalize(side1).cross(normalize(side2));
-        Vector4f minus = camera.getTarget().minus(camera.getEye());
+        Vector4f triangleNormal = normalize(side1.cross(side2));
+        Vector4f minus = v1.minus(camera.getEye());
         minus.w = 0;
         Vector4f direction = normalize(minus);
-        return triangleNormal.dot(direction) < COS_30;
+        return direction.dot(triangleNormal) < 0;
     }
 
-    public int getColorWithLight(Vector4f v1, Vector4f v2, Vector4f v3) {
-
-        Vector4f side1 = new Vector4f(v2.x - v1.x, v2.y - v1.y, v2.z - v1.z, 0);
-        Vector4f side2 = new Vector4f(v3.x - v1.x, v3.y - v1.y, v3.z - v1.z, 0);
-        Vector4f triangleNormal = normalize(side1).cross(normalize(side2));
-        Vector4f light = new Vector4f(-lightDirection.x, -lightDirection.y, -lightDirection.z, 0);
-        float coeff = normalize(triangleNormal).dot(normalize(light));
-        coeff = (coeff + 1.f) / 2.f;
-        return colorOf(0, 0, (int)(255.f * coeff), 255);
-
+    private float edge(float x1, float x2, float y1, float y2, float px, float py) {
+        return (px - x1) * (y2 - y1) - (py - y1) * (x2 - x1);
     }
 
-    public void drawTriangle(Vector4f v1, Vector4f v2, Vector4f v3, int color) {
 
-        if (v1.z < 0 || v2.z < 0 || v3.z < 0) {
+    private static final float ambientCoeff = 0.1f;
+
+
+    public void drawTriangle(VertexData vd3, VertexData vd2, VertexData vd1) {
+
+        if (isBackface(vd1, vd2, vd3)) {
             return;
         }
 
-        if (!shouldDraw(v1, v2, v3)) {
-            return;
-        }
+        Matrix4f mvp = vd1.transform.multiply(camera.getViewMatrix()).multiply(projection.projection);
+        Vector4f v1 = mvp.multiply(new Vector4f(vd1.position, 1.0f));
+        Vector4f v2 = mvp.multiply(new Vector4f(vd2.position, 1.0f));
+        Vector4f v3 = mvp.multiply(new Vector4f(vd3.position, 1.0f));
 
-        int x1 = (int) (v1.x / v1.w * (float) width / 2.f) + width / 2;
-        int x2 = (int) (v2.x / v2.w * (float) width / 2.f) + width / 2;
-        int x3 = (int) (v3.x / v3.w * (float) width / 2.f) + width / 2;
+        Vector4f vm1 = vd1.transform.multiply(new Vector4f(vd1.position, 1.0f));
+        Vector4f vm2 = vd2.transform.multiply(new Vector4f(vd2.position, 1.0f));
+        Vector4f vm3 = vd3.transform.multiply(new Vector4f(vd3.position, 1.0f));
 
-        int y1 = ((int) (v1.y / v1.w * (float) height / 2.f) + height / 2);
-        int y2 = ((int) (v2.y / v2.w * (float) height / 2.f) + height / 2);
-        int y3 = ((int) (v3.y / v3.w * (float) height / 2.f) + height / 2);
+        Vector4f v1n = vd1.transform.multiply(new Vector4f(vd1.normal, 0));
+        Vector4f v2n = vd2.transform.multiply(new Vector4f(vd2.normal, 0));
+        Vector4f v3n = vd3.transform.multiply(new Vector4f(vd3.normal, 0));
+
+        float x1 = (v1.x / v1.w * width / 2.f) + width / 2.f;
+        float x2 = (v2.x / v2.w * width / 2.f) + width / 2.f;
+        float x3 = (v3.x / v3.w * width / 2.f) + width / 2.f;
+
+        float y1 = (v1.y / v1.w * height / 2.f) + height / 2.f;
+        float y2 = (v2.y / v2.w * height / 2.f) + height / 2.f;
+        float y3 = (v3.y / v3.w * height / 2.f) + height / 2.f;
 
         float z1 = v1.z;
         float z2 = v2.z;
         float z3 = v3.z;
         float avgZ = (z1 + z2 + z3) / 3.f;
 
-//        color = colorOf(255, 255, 255, 255);
-        if (y1 > y2) {
-            int tmp = y1;
-            y1 = y2;
-            y2 = tmp;
-            tmp = x1;
-            x1 = x2;
-            x2 = tmp;
-        }
-        if (y1 > y3) {
-            int tmp = y1;
-            y1 = y3;
-            y3 = tmp;
-            tmp = x1;
-            x1 = x3;
-            x3 = tmp;
-        }
-        if (y2 > y3) {
-            int tmp = y2;
-            y2 = y3;
-            y3 = tmp;
-            tmp = x2;
-            x2 = x3;
-            x3 = tmp;
+        if (z1 < 0 || z2 < 0 || z3 < 0) {
+            return;
         }
 
-        // y = kx + b
-        // y1 = kx1 + b => b = y1 - kx1 => b = y1 - x1 * (y2 - y1) / (x2 - x1)
-        // y2 = kx2 + b => y2 = kx2 + y1 - kx1 => y2 = k(x2 - x1) + y1 => k = (y2 - y1) / (x2 - x1)
-        //
+        float minX = min(min(x1, x2), x3);
+        float maxX = max(max(x1, x2), x3);
+        float minY = min(min(y1, y2), y3);
+        float maxY = max(max(y1, y2), y3);
+        for (float y = bound(round(minY), height); y <= bound(round(maxY), height); y += 1) {
+            for (float x = bound(round(minX), width); x <= bound(round(maxX), width); x += 1) {
+                float e1 = edge(x1, x2, y1, y2, x, y);
+                float e2 = edge(x2, x3, y2, y3, x, y);
+                float e3 = edge(x3, x1, y3, y1, x, y);
+                if (e1 >= 0 && e3 >= 0 && e2 >= 0) {
+                    float area = edge(x1, x2, y1, y2, x3, y3);
+                    float w3 = e1 / area;
+                    float w2 = e3 / area;
+                    float w1 = e2 / area;
+                    Vector4f pixelNormal = v1n.mul(w1).plus(v2n.mul(w2)).plus(v3n.mul(w3));
+                    Vector4f pixelColor = rgbaVec(vd1.color).mul(w1).plus(rgbaVec(vd2.color).mul(w2)).plus(rgbaVec(vd3.color).mul(w3));
 
-        // y = 1 - staight line equation
-        // (1) y = k1x + b1 => x = (y - b1) / k1 => x = (c - y1 + x1 * (y2 - y1) / (x2 - x1)
-        // (2) y = k2x + b2 => b2 = 1, k2x = 0 => y = 1
+                    Vector4f pixelModelPosition = vm1.mul(w1).plus(vm2.mul(w2)).plus(vm3.mul(w3));
 
-        Map<Integer, Integer> line1 = lineX(x1, x2, y1, y2);
-        Map<Integer, Integer> line2 = lineX(x1, x3, y1, y3);
-        Map<Integer, Integer> line3 = lineX(x2, x3, y2, y3);
-        for (int i = bound(height, y1); i <= bound(height, y2); i++) {
-            if (line1.containsKey(i) && line2.containsKey(i)) {
-                drawLine(bound(width, line1.get(i)), bound(width, line2.get(i)), i, i, color, avgZ);
+                    Vector4f ambientColor = pixelColor.mul(ambientCoeff);
+                    Vector4f lightDirection = normalize(lightPosition.minus(pixelModelPosition));
+                    Vector4f viewDirection = normalize(camera.getEye().minus(pixelModelPosition));
+
+                    float diffuseCoeff = max(0, lightDirection.dot(pixelNormal));
+                    Vector4f diffuseColor = pixelColor.mul(diffuseCoeff);
+
+                    Vector4f R = pixelNormal.mul(2 * lightDirection.dot(pixelNormal)).minus(lightDirection);
+                    float specularCoeff = (float) pow(viewDirection.dot(R), SHINYNESS) * SPECULAR_INTENCITY;
+
+                    float w = pixelColor.w;
+                    Vector4f finalColor = pixelColor.mul(ambientCoeff + diffuseCoeff + specularCoeff);
+                    finalColor.w = w;
+
+                    drawPixel((int) x, (int) y, colorOf(finalColor), z1 * w1 + z2 * w2 + z3 * w3);
+                }
             }
         }
-
-        for (int i = bound(height, y2); i <= bound(height, y3); i++) {
-            if (line2.containsKey(i) && line3.containsKey(i)) {
-                drawLine(bound(width, line3.get(i)), bound(width, line2.get(i)), i, i, color, avgZ);
-            }
-        }
-
-        drawLine(x1, x2, y1, y2, color, avgZ);
-        drawLine(x2, x3, y2, y3, color, avgZ);
-        drawLine(x3, x1, y3, y1, color, avgZ);
     }
 
     private int bound(int max, int v) {

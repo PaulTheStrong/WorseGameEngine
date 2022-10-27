@@ -8,6 +8,13 @@ public class Vector4f {
 
     public Vector4f() {}
 
+    public Vector4f(Vector3f v3f, float w) {
+        this.x = v3f.x;
+        this.y = v3f.y;
+        this.z = v3f.z;
+        this.w = w;
+    }
+
     public Vector4f(float x, float y, float z) {
         this.x = x;
         this.y = y;
@@ -20,6 +27,10 @@ public class Vector4f {
         this.y = y;
         this.z = z;
         this.w = w;
+    }
+
+    public Vector3f getXYZ() {
+        return new Vector3f(x, y, z);
     }
 
     public float length() {
@@ -58,7 +69,7 @@ public class Vector4f {
 
     public static Vector4f normalize(Vector4f v) {
         float length = v.length();
-        return new Vector4f(v.x / length, v.y / length, v.z / length, v.w);
+        return length == 0 ? new Vector4f(0, 0, 0, 0) : new Vector4f(v.x / length, v.y / length, v.z / length, v.w);
     }
 
     public Vector4f mul(float scale) {
