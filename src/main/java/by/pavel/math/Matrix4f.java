@@ -1,7 +1,7 @@
 package by.pavel.math;
 
-import static java.lang.Math.cos;
-import static java.lang.Math.sin;
+import static by.pavel.math.Vector3f.negate3;
+import static by.pavel.math.Vector3f.normalize3;
 
 public class Matrix4f {
     float m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23, m30, m31, m32, m33;
@@ -102,55 +102,56 @@ public class Matrix4f {
         return new Vector4f(x, y, z, w);
     }
 
-    public static Matrix4f translation(Vector4f translationVec) {
+    public static Matrix4f translation(Vector3f translationVec) {
         return new Matrix4f(
-                new Vector4f(1, 0, 0, translationVec.x),
-                new Vector4f(0, 1, 0, translationVec.y),
-                new Vector4f(0, 0, 1, translationVec.z),
-                new Vector4f(0, 0, 0, 1)
+            new Vector4f(1, 0, 0, translationVec.x),
+            new Vector4f(0, 1, 0, translationVec.y),
+            new Vector4f(0, 0, 1, translationVec.z),
+            new Vector4f(0, 0, 0, 1)
         );
     }
 
-    public static Matrix4f rotation(Vector4f rotationVec) {
+    static float cos(double a) {
+        return (float) Math.cos(a);
+    }
+
+    static float sin(double a) {
+        return (float) Math.sin(a);
+    }
+
+    public static Matrix4f rotation(Vector3f rotationVec) {
+        float yaw = rotationVec.x;
+        float pitch = rotationVec.y;
+        float roll = rotationVec.z;
         return
-                new Matrix4f(
-                        new Vector4f(1, 0, 0, 0),
-                        new Vector4f(0, (float) cos(rotationVec.x), -(float) sin(rotationVec.x), 0),
-                        new Vector4f(0, (rotationVec.x), (float) cos(rotationVec.x), 0),
-                        new Vector4f(0, 0, 0, 1)).multiply(
-                        new Matrix4f(
-                                new Vector4f((float) cos(rotationVec.y), 0, (float) sin(rotationVec.y), 0),
-                                new Vector4f(0, 1, 0, 0),
-                                new Vector4f(-(float) sin(rotationVec.y), 0, (float) cos(rotationVec.y), 0),
-                                new Vector4f(0, 0, 0, 1))).multiply(
-                        new Matrix4f(
-                                new Vector4f((float) cos(rotationVec.z), -(float) sin(rotationVec.z), 0, 0),
-                                new Vector4f((float) sin(rotationVec.z), (float) cos(rotationVec.z), 0, 0),
-                                new Vector4f(0, 0, 1, 0),
-                                new Vector4f(0, 0, 0, 1)));
+            new Matrix4f(
+                new Vector4f(cos(yaw) * cos(pitch), cos(yaw) * sin(pitch) * sin(roll) - sin(yaw) * cos(roll), cos(yaw) * sin(pitch) * cos(roll) + sin(yaw) * sin(roll), 0),
+                new Vector4f(sin(yaw) * cos(pitch), sin(yaw) * sin(pitch) * sin(roll) + cos(yaw) * cos(roll), sin(yaw) * sin(pitch) * cos(roll) - cos(yaw) * sin(roll), 0),
+                new Vector4f(-sin(pitch), cos(pitch) * sin(roll), cos(pitch) * cos(roll), 0),
+                new Vector4f(0, 0, 0, 1)
+            );
 
     }
 
-    public static Matrix4f scale(Vector4f scaleVec) {
+    public static Matrix4f scale(Vector3f scaleVec) {
         return new Matrix4f(
-                new Vector4f(scaleVec.x, 0, 0, 0),
-                new Vector4f(0, scaleVec.y, 0, 0),
-                new Vector4f(0, 0, scaleVec.z, 0),
-                new Vector4f(0, 0, 0, 1)
+            new Vector4f(scaleVec.x, 0, 0, 0),
+            new Vector4f(0, scaleVec.y, 0, 0),
+            new Vector4f(0, 0, scaleVec.z, 0),
+            new Vector4f(0, 0, 0, 1)
         );
     }
 
-    public static Matrix4f lookAt(Vector4f position, Vector4f target, Vector4f up) {
-        Vector4f direction = Vector4f.normalize(position.minus(target));
-        Vector4f right = Vector4f.normalize(up.cross(direction));
-        Vector4f actualUp = direction.cross(right);
+    public static Matrix4f lookAt(Vector3f position, Vector3f target, Vector3f up) {
+        Vector3f direction = normalize3(position.minus(target));
+        Vector3f right = normalize3(up.cross(direction));
+        Vector3f actualUp = direction.cross(right);
         Matrix4f lookAt = new Matrix4f(
-                new Vector4f(right.x, right.y, right.z, 0),
-                new Vector4f(actualUp.x, actualUp.y, actualUp.z, 0),
-                new Vector4f(direction.x, direction.y, direction.z, 0),
-                new Vector4f(0, 0, 0, 1));
-        Matrix4f translation = Matrix4f.translation(
-                new Vector4f(-position.x, -position.y, -position.z, 1));
+            new Vector4f(right.x, right.y, right.z, 0),
+            new Vector4f(actualUp.x, actualUp.y, actualUp.z, 0),
+            new Vector4f(direction.x, direction.y, direction.z, 0),
+            new Vector4f(0, 0, 0, 1));
+        Matrix4f translation = Matrix4f.translation(negate3(position));
         return translation.multiply(lookAt);
     }
 

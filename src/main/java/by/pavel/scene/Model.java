@@ -39,12 +39,12 @@ public class Model {
         return model;
     }
 
-    void setRotation(Matrix4f rotation) {
+    public void setRotation(Matrix4f rotation) {
         this.rotation = rotation;
         setModel();
     }
 
-    void setTranslation(Matrix4f translation) {
+    public void setTranslation(Matrix4f translation) {
         this.translation = translation;
         setModel();
     }
@@ -53,4 +53,6 @@ public class Model {
         this.scale = scale;
         setModel();
     }
+
+
 }

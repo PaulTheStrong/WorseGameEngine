@@ -31,4 +31,24 @@ public class Vector3f {
         if (length == 0) return v;
         return new Vector3f(v.x / length, v.y / length, v.z / length);
     }
+
+    public static Vector3f negate3(Vector3f v) {
+        return new Vector3f(-v.x, -v.y, -v.z);
+    }
+
+    public static Vector3f reflect3(Vector3f reflectionVector, Vector3f normalVector) {
+        float dot = reflectionVector.dot(normalVector);
+        if (dot <= 0) {
+            return new Vector3f(0, 0, 0);
+        }
+        return reflectionVector.minus(normalVector.mul(dot * 2));
+    }
+
+    public Vector3f cross(Vector3f other) {
+        return new Vector3f(
+            y * other.z - z * other.y,
+            z * other.x - x * other.z,
+            x * other.y - y * other.x
+        );
+    }
 }
