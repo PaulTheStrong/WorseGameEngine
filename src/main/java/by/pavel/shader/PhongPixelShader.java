@@ -21,7 +21,7 @@ public class PhongPixelShader implements PixelShader {
 
     private List<LightSource> lightSources;
     private float ambientness;
-    private static final float SHININESS = 20f;
+    private static final float SHININESS = 10f;
 
     @Override
     public Vector4f getPixelColor(Vector3f cameraPosition, Vector3f pixelNormal, Vector3f pixelModelPosition, Vector4f pixelColor) {
