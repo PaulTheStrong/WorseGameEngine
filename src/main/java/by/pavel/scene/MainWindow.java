@@ -27,6 +27,9 @@ import by.pavel.scene.listener.KeyboardModelListener;
 
 public class MainWindow extends JFrame {
 
+    private static final String MODEL_TEXTURE = "src/main/resources/skull.png";
+    private static final String MODEL_DATA = "src/main/resources/skull.obj";
+    private static final String MODEL_NORMAL_MAP = null;
     private final int width, height;
     private Screen screen;
 
@@ -45,9 +48,9 @@ public class MainWindow extends JFrame {
         this.width = width;
         this.height = height;
         lightSources = List.of(
-            new LightSource(rgbaVec(RED), new Vector3f(10, 0 , 0), 0.5f, 0.3f),
-            new LightSource(rgbaVec(GREEN), new Vector3f(0, 0 , 0), 0.3f, 0.1f),
-            new LightSource(rgbaVec(BLUE), new Vector3f(-10, 0 , 0), 0.4f, 0.4f)
+            new LightSource(rgbaVec(RED), new Vector3f(10, 0, 0), 0.5f, 0.3f),
+            new LightSource(rgbaVec(GREEN), new Vector3f(0, 0, 0), 0.3f, 0.1f),
+            new LightSource(rgbaVec(BLUE), new Vector3f(-10, 0, 0), 0.4f, 0.4f)
         );
         screen = new Screen(width, height, lightSources);
         initModel();
@@ -57,7 +60,7 @@ public class MainWindow extends JFrame {
                 super.paintComponent(g);
 
                 screen.clear();
-                screen.drawPhong(rgbaVec(colorOf(255, 255, 255, 255)), model);
+                screen.drawPhong(rgbaVec(colorOf(52, 122, 119, 255)), model);
                 lightSources.forEach(
                     lightSource -> {
                         sphere.setTranslation(Matrix4f.translation(lightSource.getPosition()));
@@ -66,8 +69,9 @@ public class MainWindow extends JFrame {
                 );
                 g.drawImage(screen.getBufferedImage(), 0, 0, width, height,
                     (img, infoflags, x, y, width1, height1) -> {
-                    paintComponent(g); return true;
-                });
+                        paintComponent(g);
+                        return true;
+                    });
             }
         };
         add(imagePanel);
@@ -91,15 +95,19 @@ public class MainWindow extends JFrame {
 
     private void initModel() {
         OBJParser parser = new OBJParser();
-        OBJData objData = parser.parseFile("src/main/resources/sword.obj");
+        OBJData objData = parser.parseFile(MODEL_DATA);
 
         model = new Model(
-                Matrix4f.translation(new Vector3f(0, 0, 10)),
-                Matrix4f.rotation(new Vector3f(0, 0, 0)),
-                Matrix4f.scale(new Vector3f(0.1f, 0.1f, 0.1f)),
-                objData.getVertices(),
-                objData.getNormals(),
-                objData.getSurfaces());
+            Matrix4f.translation(new Vector3f(0, 0, 10)),
+            Matrix4f.rotation(new Vector3f(0, 0, 0)),
+            Matrix4f.scale(new Vector3f(0.1f, 0.1f, 0.1f)),
+            objData.getVertices(),
+            objData.getNormals(),
+            objData.getSurfaces(),
+            objData.getTextures(),
+            MODEL_TEXTURE,
+            MODEL_NORMAL_MAP
+        );
 
         OBJData sphereData = parser.parseFile("src/main/resources/sphere.obj");
         sphere = new Model(
@@ -108,6 +116,9 @@ public class MainWindow extends JFrame {
             Matrix4f.scale(new Vector3f(0.2f, 0.2f, 0.2f)),
             sphereData.getVertices(),
             sphereData.getNormals(),
-            sphereData.getSurfaces());
+            sphereData.getSurfaces(),
+            null,
+            null,
+            null);
     }
 }

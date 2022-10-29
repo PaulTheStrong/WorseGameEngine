@@ -3,7 +3,13 @@ package by.pavel.math;
 import static java.lang.Math.sqrt;
 
 public class Vector3f {
+
+    public static final Vector3f ONE_VECTOR_3F = new Vector3f(1.f, 1.f, 1.f);
+
     public float x, y, z;
+
+    public Vector3f() {
+    }
 
     public Vector3f(float x, float y, float z) {
         this.x = x;

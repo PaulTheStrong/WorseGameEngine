@@ -9,4 +9,6 @@ public class VertexData {
     public Vector3f normal;
     public Matrix4f transform;
     public Vector4f color;
+
+    public Vector2f texture;
 }

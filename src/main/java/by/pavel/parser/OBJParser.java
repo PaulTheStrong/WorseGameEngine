@@ -1,5 +1,6 @@
 package by.pavel.parser;
 
+import by.pavel.math.Vector2f;
 import by.pavel.math.Vector3f;
 import by.pavel.math.Vector3i;
 import by.pavel.math.Vector4f;
@@ -19,7 +20,7 @@ public class OBJParser {
     public OBJData parseFile(String filename) {
         List<String> lines = Files.readAllLines(Paths.get(filename));
         List<Vector3f> vertices = new ArrayList<>();
-        List<Vector4f> textures = new ArrayList<>();
+        List<Vector2f> textures = new ArrayList<>();
         List<Vector3f> normals = new ArrayList<>();
         List<Vector4f> vertexParams = new ArrayList<>();
         List<List<Vector3i>> surfaces = new ArrayList<>();
@@ -51,7 +52,7 @@ public class OBJParser {
                         f[i] = value;
                         i++;
                     }
-                    textures.add(new Vector4f(f[0], f[1], f[2]));
+                    textures.add(new Vector2f(f[0], f[1]));
                     break;
                 }
                 case "vn": {
