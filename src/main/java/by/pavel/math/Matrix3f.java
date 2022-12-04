@@ -27,4 +27,12 @@ public class Matrix3f {
 
         return new Vector3f(x, y, z);
     }
+
+    public static Matrix3f transpose(Matrix3f matrix) {
+        return new Matrix3f(
+            new Vector3f(matrix.m00, matrix.m10, matrix.m20),
+            new Vector3f(matrix.m01, matrix.m11, matrix.m21),
+            new Vector3f(matrix.m02, matrix.m12, matrix.m22)
+        );
+    }
 }

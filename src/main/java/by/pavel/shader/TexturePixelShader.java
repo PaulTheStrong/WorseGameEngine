@@ -6,7 +6,7 @@ import by.pavel.math.Vector4f;
 public class TexturePixelShader implements PixelShader {
 
     @Override
-    public Vector4f getPixelColor(Vector3f cameraPosition, Vector3f pixelNormal, Vector3f pixelModelPosition, Vector4f pixelColor) {
+    public Vector4f getPixelColor(Vector3f cameraPosition, PixelData pixelData) {
         return null;
     }
 }

@@ -1,23 +1,29 @@
 package by.pavel.scene;
 
-import by.pavel.math.Matrix3f;
 import by.pavel.math.Matrix4f;
 import by.pavel.math.Vector2f;
+import by.pavel.math.Vector2i;
 import by.pavel.math.Vector3f;
 import by.pavel.math.Vector3i;
 import by.pavel.math.Vector4f;
 import by.pavel.math.VertexData;
-import by.pavel.shader.PhongPixelShader;
+import by.pavel.shader.CalcPhongPixelShader;
+import by.pavel.shader.SpecularMapPhongPixelShader;
+import by.pavel.shader.PixelData;
 import by.pavel.shader.PixelShader;
 import lombok.Getter;
 import lombok.SneakyThrows;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static by.pavel.math.MathUtils.bound;
-import static by.pavel.math.Vector3f.ONE_VECTOR_3F;
 import static by.pavel.math.Vector3f.negate3;
 import static by.pavel.math.Vector3f.normalize3;
 import static by.pavel.scene.ColorUtil.colorOf;
@@ -68,26 +74,21 @@ public class Screen {
     public void clear() {
         zBuffer = new float[width * height];
         for (int i = 0; i < width * height; i++) {
-            zBuffer[i] = 1.0f;
+            zBuffer[i] = Float.POSITIVE_INFINITY;
         }
         bufferedImage.getGraphics().clearRect(0, 0, width, height);
     }
 
-    public void drawPixel(int x, int y, int color, float z) {
-        if (x >= 0 & x < width && y >= 0 && y < height) {
-            float normalizedZ = z / projection.far;
-            float initialBuf = zBuffer[y * width + x];
-            if (normalizedZ < initialBuf) {
-                zBuffer[y * width + x] = normalizedZ;
-                bufferedImage.setRGB(x, height - 1 - y, color);
-            }
-        } else {
-//            throw new IndexOutOfBoundsException("Error writing to buffer with params x = " + x + ", y = " + y);
-        }
+    public void drawPixel(int x, int y, int color) {
+        bufferedImage.setRGB(x, height - 1 - y, color);
     }
 
     public void drawPhong(Vector4f modelColor, Model model) {
-        drawOBJ(modelColor, model, new PhongPixelShader(lightSources, 0.3f));
+       if (Optional.ofNullable(model.getSpecularMap()).isPresent()) {
+           drawOBJ(modelColor, model, new SpecularMapPhongPixelShader(lightSources, 0.3f));
+       } else {
+           drawOBJ(modelColor, model, new CalcPhongPixelShader(lightSources, 0.3f));
+       }
     }
 
     public void drawStraight(Vector4f modelColor, Model model) {
@@ -97,11 +98,10 @@ public class Screen {
     public void drawOBJ(Vector4f modelColor, Model model, PixelShader pixelShader) {
         Matrix4f modelMatr = model.getModel();
 
+        Raster texture = model.getTexture();
         List<Vector3f> vertices = model.getVertices();
         List<Vector3f> normals = model.getNormals();
         List<Vector2f> uvTextures = model.getUvTextures();
-        Raster texture = model.getTexture();
-        Raster normalMap = model.getNormalMap();
         for (List<Vector3i> face : model.getFaces()) {
             int verticesPerFace = face.size();
             for (int i = 1; i < verticesPerFace - 1; i++) {
@@ -123,9 +123,10 @@ public class Screen {
                 VertexData vd1 = new VertexData(v1, v1n, modelMatr, modelColor, v1t);
                 VertexData vd2 = new VertexData(v2, v2n, modelMatr, modelColor, v2t);
                 VertexData vd3 = new VertexData(v3, v3n, modelMatr, modelColor, v3t);
-                drawTriangle(vd1, vd2, vd3, pixelShader, texture, normalMap);
+                drawTriangle(model, vd1, vd2, vd3, pixelShader);
             }
         }
+        System.out.println("Finished drawing");
     }
 
     private Vector4f divideByW(Vector4f v) {
@@ -146,9 +147,14 @@ public class Screen {
     }
 
     @SneakyThrows
-    public void drawTriangle(VertexData vd3, VertexData vd2, VertexData vd1, PixelShader pixelShader, Raster texture, Raster normalMap) {
+    public void drawTriangle(Model model, VertexData vd3, VertexData vd2, VertexData vd1, PixelShader pixelShader) {
 
-        Vector3f vm1 = vd1.transform.multiply(new Vector4f(vd1.position, 1.0f)).getXYZ();
+        Raster texture = model.getTexture();
+        Raster normalMap = model.getNormalMap();
+        Raster specularMap = model.getSpecularMap();
+
+        Matrix4f transform = vd1.transform;
+        Vector3f vm1 = transform.multiply(new Vector4f(vd1.position, 1.0f)).getXYZ();
         Vector3f vm2 = vd2.transform.multiply(new Vector4f(vd2.position, 1.0f)).getXYZ();
         Vector3f vm3 = vd3.transform.multiply(new Vector4f(vd3.position, 1.0f)).getXYZ();
 
@@ -156,14 +162,22 @@ public class Screen {
             return;
         }
 
-        Matrix4f mvp = vd1.transform.multiply(camera.getViewMatrix()).multiply(projection.projection);
+        Matrix4f mvp = transform.multiply(camera.getViewMatrix()).multiply(projection.projection);
         Vector4f v1 = mvp.multiply(new Vector4f(vd1.position, 1.0f));
         Vector4f v2 = mvp.multiply(new Vector4f(vd2.position, 1.0f));
         Vector4f v3 = mvp.multiply(new Vector4f(vd3.position, 1.0f));
 
-        Vector3f v1n = vd1.transform.multiply(new Vector4f(vd1.normal, 0)).getXYZ();
+        Vector3f v1n = transform.multiply(new Vector4f(vd1.normal, 0)).getXYZ();
         Vector3f v2n = vd2.transform.multiply(new Vector4f(vd2.normal, 0)).getXYZ();
         Vector3f v3n = vd3.transform.multiply(new Vector4f(vd3.normal, 0)).getXYZ();
+
+        float z1 = v1.z;
+        float z2 = v2.z;
+        float z3 = v3.z;
+
+        if (z1 < 0 || z2 < 0 || z3 < 0) {
+            return;
+        }
 
         float x1 = (v1.x / v1.w * width / 2.f) + width / 2.f;
         float x2 = (v2.x / v2.w * width / 2.f) + width / 2.f;
@@ -173,15 +187,11 @@ public class Screen {
         float y2 = (v2.y / v2.w * height / 2.f) + height / 2.f;
         float y3 = (v3.y / v3.w * height / 2.f) + height / 2.f;
 
-        float z1 = v1.z;
-        float z2 = v2.z;
-        float z3 = v3.z;
-
         float v1tx = 0, v1ty = 0, v2tx = 0, v2ty = 0, v3tx = 0, v3ty = 0;
-        Vector3f tanget = new Vector3f(), bitangent = new Vector3f();
-        Vector3f worldTangent = new Vector3f();
-
-        if (texture != null) {
+//        Vector3f tangent = new Vector3f();
+//        Vector3f bitangent = new Vector3f();
+//        Matrix3f TBN = null;
+        if (texture != null || normalMap != null || specularMap != null) {
             v1tx = vd1.texture.x;
             v1ty = vd1.texture.y;
             v2tx = vd2.texture.x;
@@ -189,31 +199,39 @@ public class Screen {
             v3tx = vd3.texture.x;
             v3ty = vd3.texture.y;
 
-            Vector3f edge1 = vm2.minus(vm1);
-            Vector3f edge2 = vm3.minus(vm1);
+//            Vector3f edge1 = vm2.minus(vm1);
+//            Vector3f edge2 = vm3.minus(vm1);
+//
+//            float dU1 = v2tx - v1tx;
+//            float dV1 = v2ty - v1ty;
+//            float dU2 = v3tx - v1tx;
+//            float dV2 = v3ty - v1ty;
+//
+//            float f = 1.0f / (dU1 * dV2 - dU2 * dV1);
+//
+//            tangent.x = f * (dV2 * edge1.x - dV1 * edge2.x);
+//            tangent.y = f * (dV2 * edge1.y - dV1 * edge2.y);
+//            tangent.z = f * (dV2 * edge1.z - dV1 * edge2.z);
+//
+//            bitangent.x = f * (-dU2 * edge1.x + dU1 * edge2.x);
+//            bitangent.y = f * (-dU2 * edge1.y + dU1 * edge2.y);
+//            bitangent.z = f * (-dU2 * edge1.z + dU1 * edge2.z);
+//            TBN = Matrix3f.transpose(new Matrix3f(
+//                normalize3(tangent),
+//                normalize3(bitangent),
+//                normalize3(tangent.cross(bitangent))
+//            ));
 
-            float dU1 = v2tx - v1tx;
-            float dV1 = v2ty - v1ty;
-            float dU2 = v3tx - v1tx;
-            float dV2 = v3ty - v1ty;
-
-
-            float f = 1.0f / (dU1 * dV1 - dU2 * dV2);
-
-            tanget.x = f * (dV2 * edge1.x - dV1 * edge2.x);
-            tanget.y = f * (dV2 * edge1.y - dV1 * edge2.y);
-            tanget.z = f * (dV2 * edge1.z - dV1 * edge2.z);
-
-            bitangent.x = f * (-dU2 * edge1.x + dU1 * edge2.x);
-            bitangent.y = f * (-dU2 * edge1.y + dU1 * edge2.y);
-            bitangent.z = f * (-dU2 * edge1.z + dU1 * edge2.z);
-
-            worldTangent = normalize3(vd1.transform.multiply(new Vector4f(tanget, 1)).getXYZ());
         }
 
-        if (z1 < 0 || z2 < 0 || z3 < 0) {
-            return;
-        }
+        v1tx /= z1; v1ty /= z1;
+        v2tx /= z2; v2ty /= z2;
+        v3tx /= z3; v3ty /= z3;
+
+        // pre-compute 1 over z
+        z1 = 1.f / z1;
+        z2 = 1.f / z2;
+        z3 = 1.f / z3;
 
         float minX = min(min(x1, x2), x3);
         float maxX = max(max(x1, x2), x3);
@@ -222,10 +240,54 @@ public class Screen {
         Vector3f cameraPosition = camera.getEye();
 
         int[] color = new int[4];
-        int[] normalFromMap = new int[4];
-        int tWidth = texture == null ? 0 : texture.getWidth();
-        int tHeight = texture == null ? 0 : texture.getHeight();
-        Matrix3f TBN;
+        int[] normal = new int[4];
+        int[] specular = new int[4];
+        int tWidth = texture == null ? 0 : texture.getWidth() - 1;
+        int tHeight = texture == null ? 0 : texture.getHeight() - 1;
+        int nWidth = normalMap == null ? 0 : normalMap.getWidth() - 1;
+        int nHeight = normalMap == null ? 0 : normalMap.getHeight() - 1;
+
+//        List<Vector3f> sorted = List.of(new Vector3f(x1, y1, z1), new Vector3f(x2, y2, z2), new Vector3f(x3, y3, z3)).stream().sorted(Comparator.comparingDouble(v -> v.y))
+//            .collect(Collectors.toList());
+//        x1 = sorted.get(0).x;
+//        y1 = sorted.get(0).y;
+//        z1 = sorted.get(0).z;
+//        x2 = sorted.get(1).x;
+//        y2 = sorted.get(1).y;
+//        z2 = sorted.get(1).z;
+//        x3 = sorted.get(2).x;
+//        y3 = sorted.get(2).y;
+//        z3 = sorted.get(2).z;
+//
+//        float slope12 = (y2 - y1) / (x2 - x1);
+//        float slope23 = (y3 - y2) / (x3 - x2);
+//        float slope13 = (y3 - y1) / (x3 - x1);
+//
+//        List<Vector2i> points = new ArrayList<>();
+//
+//        for (int y = (int)(y1 + 0.5f); y < (int)(y2 + 0.5f); y++) {
+//            int xLeft = (int) (x1 + (y - y1) * slope13);
+//            int xRight = (int) (x1 + (y - y1) * slope12);
+//            if (xLeft > xRight) {
+//                int temp = xLeft;
+//                xLeft = xRight;
+//                xRight = temp;
+//            }
+//            points.add(new Vector2i(bound(width, xLeft), y));
+//            points.add(new Vector2i(bound(width, xRight), y));
+//        }
+//        for (int y = (int)(y2 + 0.5f); y < (int)(y3 + 0.5f); y++) {
+//            int xLeft = (int) (x1 + (y - y1) * slope13);
+//            int xRight = (int) (x1 + (y - y2) * slope23);
+//            if (xLeft > xRight) {
+//                int temp = xLeft;
+//                xLeft = xRight;
+//                xRight = temp;
+//            }
+//            points.add(new Vector2i(bound(width, xLeft), y));
+//            points.add(new Vector2i(bound(width, xRight), y));
+//        }
+
         for (float y = bound(round(minY), height); y <= bound(round(maxY), height); y += 1) {
             for (float x = bound(round(minX), width); x <= bound(round(maxX), width); x += 1) {
                 float e1 = edge(x1, x2, y1, y2, x, y);
@@ -237,40 +299,69 @@ public class Screen {
                     float w2 = e3 / area;
                     float w1 = e2 / area;
 
-                    int ptx = (int) ((v1tx * w1 + v2tx * w2 + v3tx * w3) * tWidth);
-                    int pty = tHeight - 1 - (int) ((v1ty * w1 + v2ty * w2 + v3ty * w3) * tHeight);
-
-                    Vector3f pixelNormal = normalize3(v1n.mul(w1).plus(v2n.mul(w2)).plus(v3n.mul(w3)));
-                    if (normalMap != null) {
-                        normalMap.getPixel(ptx, pty, normalFromMap);
-                        Vector3f bumpMapNormal = pixelNormal = new Vector3f(normalFromMap[0], normalFromMap[1], normalFromMap[2]);
-                        Vector3f pixelTangent = normalize3(worldTangent.minus(pixelNormal));
-                        Vector3f pixelBitangent = tanget.cross(pixelNormal);
-                        bumpMapNormal = bumpMapNormal.mul(2.0f).minus(ONE_VECTOR_3F);
-                        TBN = new Matrix3f(pixelTangent, pixelBitangent, pixelNormal);
-                        pixelNormal = normalize3(TBN.multiply(bumpMapNormal));
+                    int idx = (int) y * width + (int) x;
+                    if (x < 0 || x >= width || y < 0 || y >= height) {
+                        continue;
                     }
+                    float initialBuf = zBuffer[idx];
+                    float z = 1 / (w1 * z1 + w2 * z2 + w3 * z3);
+                    if (z < initialBuf) {
+                        zBuffer[idx] = z;
+                    } else {
+                        continue;
+                    }
+                    float s = w1 * v1tx + w2 * v2tx + w3 * v3tx;
+                    float t = w1 * v1ty + w2 * v2ty + w3 * v3ty;
 
+                    // if we use perspective correct interpolation we need to
+                    // multiply the result of this interpolation by z, the depth
+                    // of the point on the 3D triangle that the pixel overlaps.
+                    s *= z;
+                    t *= z;
+
+                    int sTexture = (int)(s * tWidth);
+                    int tTexture = (int)(tHeight * (1 - t));
+
+                    int sNormal = (int)(s * nWidth);
+                    int tNormal = (int)(nHeight * (1 - t));
+
+                    int[] pixelColorArr = texture == null ? null : texture.getPixel(sTexture, tTexture, color);
+                    int[] normalArr = normalMap == null ? null : normalMap.getPixel(sNormal, tNormal, normal);
+                    int[] specularArr = specularMap == null ? null : specularMap.getPixel(sNormal, tNormal, specular);
+
+//                    Matrix3f finalTBN = TBN;
+                    Supplier<Vector3f> pixelNormalSupplier = normalMap == null
+                        ? () -> v1n.mul(w1).plus(v2n.mul(w2)).plus(v3n.mul(w3))
+                        : () -> transform.multiply(new Vector4f(normalArr[0] * 2 - 256f, normalArr[1] * 2 - 256f, normalArr[2] * 2 - 256f, 0)).getXYZ();
+                    Vector3f pixelNormal = normalize3(pixelNormalSupplier.get());
                     Vector3f pixelModelPosition = vm1.mul(w1).plus(vm2.mul(w2)).plus(vm3.mul(w3));
 
-                    int[] pixelColorArr = texture == null ? null : texture.getPixel(ptx, pty, color);
-                    Vector4f pixelColor = texture == null ?
-                        vd1.color.mul(w1).plus(vd2.color.mul(w2)).plus(vd3.color.mul(w3)) :
-                        rgbaVec(colorOf(pixelColorArr[0], pixelColorArr[1], pixelColorArr[2], 255));
+                    Supplier<Vector4f> colorSupplier = texture == null ?
+                        () -> vd1.color.mul(w1).plus(vd2.color.mul(w2)).plus(vd3.color.mul(w3)) :
+                        () -> rgbaVec(colorOf(pixelColorArr[0], pixelColorArr[1], pixelColorArr[2], 255));
 
-                    Vector4f finalColor = pixelShader.getPixelColor(cameraPosition, pixelNormal, pixelModelPosition, pixelColor);
+                    Vector4f pixelColor = colorSupplier.get();
 
-                    drawPixel((int) x, (int) y, colorOf(finalColor), z1 * w1 + z2 * w2 + z3 * w3);
+                    Supplier<Float> specularCoefficient = specularMap == null
+                        ? () -> null
+                        : () -> specularArr[0] / 255f;
+
+                    PixelData pixelData = new PixelData(pixelNormal, pixelModelPosition, pixelColor, specularCoefficient.get());
+                    Vector4f finalColor = pixelShader.getPixelColor(cameraPosition, pixelData);
+
+                    drawPixel((int) x, (int) y, colorOf(finalColor));
                 }
             }
         }
     }
 
-    private static Vector4f straightColor(Vector3f cameraPosition, Vector3f pixelNormal, Vector3f pixelModelPosition, Vector4f pixelColor) {
-        return pixelColor;
+    private static Vector4f straightColor(Vector3f cameraPosition, PixelData pixelData) {
+        return pixelData.getPixelColor();
     }
 
-    private static Vector4f flatShadingColor(Vector3f cameraPosition, Vector3f pixelNormal, Vector3f pixelModelPosition, Vector4f pixelColor) {
+    private static Vector4f flatShadingColor(Vector3f cameraPosition, PixelData pixelData) {
+        Vector4f pixelColor = pixelData.getPixelColor();
+        Vector3f pixelNormal = pixelData.getPixelNormal();
         return pixelColor.mul((1.f + pixelNormal.dot(negate3(DIFFUSE_LIGHT_DIRECTION))) / 2.f);
     }
 

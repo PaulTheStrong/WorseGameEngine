@@ -7,6 +7,7 @@ import by.pavel.math.Vector4f;
 public class ColorUtil {
 
     public static final int BLUE = colorOf(0, 0, 255, 255);
+    public static final int WHITE = colorOf(255, 255, 255, 255);
     public static final int GREEN = colorOf(0, 255, 0, 255);
     public static final int RED = colorOf(255, 0, 0, 255);
 

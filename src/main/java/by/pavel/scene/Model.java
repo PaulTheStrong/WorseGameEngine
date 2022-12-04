@@ -25,6 +25,7 @@ public class Model {
     private final List<Vector2f> uvTextures;
     private final Raster texture;
     private final Raster normalMap;
+    private final Raster specularMap;
 
     Matrix4f model;
 
@@ -32,7 +33,7 @@ public class Model {
         model = scale.multiply(rotation).multiply(translation);
     }
 
-    public Model(Matrix4f translation, Matrix4f rotation, Matrix4f scale, List<Vector3f> vertices, List<Vector3f> normals, List<List<Vector3i>> faces, List<Vector2f> uvTextures, String texturePath, String normalMapPath) {
+    public Model(Matrix4f translation, Matrix4f rotation, Matrix4f scale, List<Vector3f> vertices, List<Vector3f> normals, List<List<Vector3i>> faces, List<Vector2f> uvTextures, String texturePath, String normalMapPath, String specularMapPath) {
         Raster textureTemp;
         this.translation = translation;
         this.rotation = rotation;
@@ -53,6 +54,12 @@ public class Model {
             textureTemp = null;
         }
         this.normalMap = textureTemp;
+        try {
+            textureTemp = ImageIO.read(new File(specularMapPath)).getRaster();
+        } catch (Exception e) {
+            textureTemp = null;
+        }
+        this.specularMap = textureTemp;
         setModel();
     }
 

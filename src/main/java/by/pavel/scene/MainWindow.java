@@ -3,6 +3,7 @@ package by.pavel.scene;
 import static by.pavel.scene.ColorUtil.BLUE;
 import static by.pavel.scene.ColorUtil.GREEN;
 import static by.pavel.scene.ColorUtil.RED;
+import static by.pavel.scene.ColorUtil.WHITE;
 import static by.pavel.scene.ColorUtil.colorOf;
 import static by.pavel.scene.ColorUtil.rgbaVec;
 
@@ -27,9 +28,11 @@ import by.pavel.scene.listener.KeyboardModelListener;
 
 public class MainWindow extends JFrame {
 
-    private static final String MODEL_TEXTURE = "src/main/resources/skull.png";
-    private static final String MODEL_DATA = "src/main/resources/skull.obj";
-    private static final String MODEL_NORMAL_MAP = null;
+    private static final String MODEL_TEXTURE = "src/main/resources/models/diffuse1.png";
+    private static final String MODEL_DATA = "src/main/resources/models/model1.obj";
+    private static final String MODEL_NORMAL_MAP = "src/main/resources/models/normal1.png";
+    private static final String MODEL_SPECULAR_MAP = "src/main/resources/models/specular1.png";
+
     private final int width, height;
     private Screen screen;
 
@@ -48,9 +51,10 @@ public class MainWindow extends JFrame {
         this.width = width;
         this.height = height;
         lightSources = List.of(
-            new LightSource(rgbaVec(RED), new Vector3f(10, 0, 0), 0.5f, 0.3f),
+            new LightSource(rgbaVec(RED), new Vector3f(10, 0, 0), 0.2f, 0.3f),
             new LightSource(rgbaVec(GREEN), new Vector3f(0, 0, 0), 0.3f, 0.1f),
-            new LightSource(rgbaVec(BLUE), new Vector3f(-10, 0, 0), 0.4f, 0.4f)
+            new LightSource(rgbaVec(BLUE), new Vector3f(-10, 0, 0), 0.2f, 0.5f),
+            new LightSource(rgbaVec(WHITE), new Vector3f(-10, 0, 0), 0.2f, 0.4f)
         );
         screen = new Screen(width, height, lightSources);
         initModel();
@@ -106,7 +110,8 @@ public class MainWindow extends JFrame {
             objData.getSurfaces(),
             objData.getTextures(),
             MODEL_TEXTURE,
-            MODEL_NORMAL_MAP
+            MODEL_NORMAL_MAP,
+            MODEL_SPECULAR_MAP
         );
 
         OBJData sphereData = parser.parseFile("src/main/resources/sphere.obj");
@@ -117,6 +122,7 @@ public class MainWindow extends JFrame {
             sphereData.getVertices(),
             sphereData.getNormals(),
             sphereData.getSurfaces(),
+            null,
             null,
             null,
             null);

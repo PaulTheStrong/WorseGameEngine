@@ -26,6 +26,7 @@ public class OBJParser {
         List<List<Vector3i>> surfaces = new ArrayList<>();
 
         for (String line : lines) {
+            if (line.length() == 0) continue;
             Scanner scanner = new Scanner(new StringReader(line));
             scanner.useDelimiter(" ");
             String symbol = scanner.next();
