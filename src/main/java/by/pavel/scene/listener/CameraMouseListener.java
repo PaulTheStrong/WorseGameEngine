@@ -1,6 +1,7 @@
 package by.pavel.scene.listener;
 
 import by.pavel.scene.Camera;
+import by.pavel.scene.Mouse;
 import lombok.RequiredArgsConstructor;
 
 import java.awt.event.MouseEvent;
@@ -26,6 +27,8 @@ public class CameraMouseListener implements MouseMotionListener, MouseListener {
 
     @Override
     public void mouseMoved(MouseEvent e) {
+        Mouse.getInstance().setX(e.getX());
+        Mouse.getInstance().setY(630 - e.getY());
     }
 
     @Override

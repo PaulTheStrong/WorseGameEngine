@@ -1,27 +1,10 @@
 package by.pavel.scene;
 
-import by.pavel.math.Matrix4f;
-import by.pavel.math.Vector2f;
-import by.pavel.math.Vector2i;
-import by.pavel.math.Vector3f;
-import by.pavel.math.Vector3i;
-import by.pavel.math.Vector4f;
-import by.pavel.math.VertexData;
-import by.pavel.shader.CalcPhongPixelShader;
-import by.pavel.shader.SpecularMapPhongPixelShader;
-import by.pavel.shader.PixelData;
-import by.pavel.shader.PixelShader;
-import lombok.Getter;
-import lombok.SneakyThrows;
-
-import java.awt.image.BufferedImage;
-import java.awt.image.Raster;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import static java.lang.Integer.MAX_VALUE;
+import static java.lang.Math.abs;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.round;
 
 import static by.pavel.math.MathUtils.bound;
 import static by.pavel.math.Vector3f.negate3;
@@ -29,22 +12,28 @@ import static by.pavel.math.Vector3f.normalize3;
 import static by.pavel.scene.ColorUtil.colorOf;
 import static by.pavel.scene.ColorUtil.rgbaVec;
 
-import static java.lang.Integer.MAX_VALUE;
-import static java.lang.Math.abs;
-import static java.lang.Math.min;
-import static java.lang.Math.max;
-import static java.lang.Math.round;
+import java.awt.image.BufferedImage;
+import java.awt.image.Raster;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
+
+import by.pavel.math.Matrix4f;
+import by.pavel.math.Vector2f;
+import by.pavel.math.Vector3f;
+import by.pavel.math.Vector3i;
+import by.pavel.math.Vector4f;
+import by.pavel.math.VertexData;
+import by.pavel.shader.CalcPhongPixelShader;
+import by.pavel.shader.PixelData;
+import by.pavel.shader.PixelShader;
+import by.pavel.shader.SpecularMapPhongPixelShader;
+import lombok.Getter;
+import lombok.SneakyThrows;
 
 public class Screen {
 
-    static final Vector3f lightPosition = new Vector3f(0, 0, 0);
     static final Vector3f DIFFUSE_LIGHT_DIRECTION = new Vector3f(0, 0, 1);
-    static final Vector4f LIGHT_COLOR = new Vector4f(0, 0, 1, 1);
-
-    private static final float SPECULAR_INTENSITY = 0.3f;
-    private static final float DIFFUSE_INTENSITY = 0.3f;
-    private static final float AMBIENT_COEFF = 0.3f;
-    private static final float SHININESS = 100;
     private static final Vector2f ZERO_VECTOR2f = new Vector2f(0, 0);
     private static final int MAX_INT_MIN_1 = MAX_VALUE - 1;
 
@@ -60,6 +49,9 @@ public class Screen {
 
     @Getter
     private final BufferedImage bufferedImage;
+
+    private boolean isObjectSelected = false;
+    private Vector3f selectedObjectModelCoordinates;
 
     public Screen(int width, int height, List<LightSource> lightSources) {
         this.width = width;
@@ -85,9 +77,9 @@ public class Screen {
 
     public void drawPhong(Vector4f modelColor, Model model) {
        if (Optional.ofNullable(model.getSpecularMap()).isPresent()) {
-           drawOBJ(modelColor, model, new SpecularMapPhongPixelShader(lightSources, 0.3f));
+           drawOBJ(modelColor, model, new SpecularMapPhongPixelShader(lightSources, 0.7f));
        } else {
-           drawOBJ(modelColor, model, new CalcPhongPixelShader(lightSources, 0.3f));
+           drawOBJ(modelColor, model, new CalcPhongPixelShader(lightSources, 0.7f));
        }
     }
 
@@ -96,6 +88,8 @@ public class Screen {
     }
 
     public void drawOBJ(Vector4f modelColor, Model model, PixelShader pixelShader) {
+        isObjectSelected = false;
+        selectedObjectModelCoordinates = null;
         Matrix4f modelMatr = model.getModel();
 
         Raster texture = model.getTexture();
@@ -126,7 +120,6 @@ public class Screen {
                 drawTriangle(model, vd1, vd2, vd3, pixelShader);
             }
         }
-        System.out.println("Finished drawing");
     }
 
     private Vector4f divideByW(Vector4f v) {
@@ -188,9 +181,6 @@ public class Screen {
         float y3 = (v3.y / v3.w * height / 2.f) + height / 2.f;
 
         float v1tx = 0, v1ty = 0, v2tx = 0, v2ty = 0, v3tx = 0, v3ty = 0;
-//        Vector3f tangent = new Vector3f();
-//        Vector3f bitangent = new Vector3f();
-//        Matrix3f TBN = null;
         if (texture != null || normalMap != null || specularMap != null) {
             v1tx = vd1.texture.x;
             v1ty = vd1.texture.y;
@@ -198,30 +188,6 @@ public class Screen {
             v2ty = vd2.texture.y;
             v3tx = vd3.texture.x;
             v3ty = vd3.texture.y;
-
-//            Vector3f edge1 = vm2.minus(vm1);
-//            Vector3f edge2 = vm3.minus(vm1);
-//
-//            float dU1 = v2tx - v1tx;
-//            float dV1 = v2ty - v1ty;
-//            float dU2 = v3tx - v1tx;
-//            float dV2 = v3ty - v1ty;
-//
-//            float f = 1.0f / (dU1 * dV2 - dU2 * dV1);
-//
-//            tangent.x = f * (dV2 * edge1.x - dV1 * edge2.x);
-//            tangent.y = f * (dV2 * edge1.y - dV1 * edge2.y);
-//            tangent.z = f * (dV2 * edge1.z - dV1 * edge2.z);
-//
-//            bitangent.x = f * (-dU2 * edge1.x + dU1 * edge2.x);
-//            bitangent.y = f * (-dU2 * edge1.y + dU1 * edge2.y);
-//            bitangent.z = f * (-dU2 * edge1.z + dU1 * edge2.z);
-//            TBN = Matrix3f.transpose(new Matrix3f(
-//                normalize3(tangent),
-//                normalize3(bitangent),
-//                normalize3(tangent.cross(bitangent))
-//            ));
-
         }
 
         v1tx /= z1; v1ty /= z1;
@@ -247,47 +213,7 @@ public class Screen {
         int nWidth = normalMap == null ? 0 : normalMap.getWidth() - 1;
         int nHeight = normalMap == null ? 0 : normalMap.getHeight() - 1;
 
-//        List<Vector3f> sorted = List.of(new Vector3f(x1, y1, z1), new Vector3f(x2, y2, z2), new Vector3f(x3, y3, z3)).stream().sorted(Comparator.comparingDouble(v -> v.y))
-//            .collect(Collectors.toList());
-//        x1 = sorted.get(0).x;
-//        y1 = sorted.get(0).y;
-//        z1 = sorted.get(0).z;
-//        x2 = sorted.get(1).x;
-//        y2 = sorted.get(1).y;
-//        z2 = sorted.get(1).z;
-//        x3 = sorted.get(2).x;
-//        y3 = sorted.get(2).y;
-//        z3 = sorted.get(2).z;
-//
-//        float slope12 = (y2 - y1) / (x2 - x1);
-//        float slope23 = (y3 - y2) / (x3 - x2);
-//        float slope13 = (y3 - y1) / (x3 - x1);
-//
-//        List<Vector2i> points = new ArrayList<>();
-//
-//        for (int y = (int)(y1 + 0.5f); y < (int)(y2 + 0.5f); y++) {
-//            int xLeft = (int) (x1 + (y - y1) * slope13);
-//            int xRight = (int) (x1 + (y - y1) * slope12);
-//            if (xLeft > xRight) {
-//                int temp = xLeft;
-//                xLeft = xRight;
-//                xRight = temp;
-//            }
-//            points.add(new Vector2i(bound(width, xLeft), y));
-//            points.add(new Vector2i(bound(width, xRight), y));
-//        }
-//        for (int y = (int)(y2 + 0.5f); y < (int)(y3 + 0.5f); y++) {
-//            int xLeft = (int) (x1 + (y - y1) * slope13);
-//            int xRight = (int) (x1 + (y - y2) * slope23);
-//            if (xLeft > xRight) {
-//                int temp = xLeft;
-//                xLeft = xRight;
-//                xRight = temp;
-//            }
-//            points.add(new Vector2i(bound(width, xLeft), y));
-//            points.add(new Vector2i(bound(width, xRight), y));
-//        }
-
+        int centralPixelIndex = width * height / 2;
         for (float y = bound(round(minY), height); y <= bound(round(maxY), height); y += 1) {
             for (float x = bound(round(minX), width); x <= bound(round(maxX), width); x += 1) {
                 float e1 = edge(x1, x2, y1, y2, x, y);
@@ -307,6 +233,14 @@ public class Screen {
                     float z = 1 / (w1 * z1 + w2 * z2 + w3 * z3);
                     if (z < initialBuf) {
                         zBuffer[idx] = z;
+                        if (abs(x - Mouse.getInstance().getX()) < 2 && abs(y - Mouse.getInstance().getY()) < 2) {
+                            isObjectSelected = true;
+                            selectedObjectModelCoordinates = new Vector3f(
+                                vm1.x * w1 + vm2.x * w2 + vm3.x * w3,
+                                vm1.y * w1 + vm2.y * w2 + vm3.y * w3,
+                                vm1.z * w1 + vm2.z * w2 + vm3.z * w3
+                            );
+                        }
                     } else {
                         continue;
                     }
@@ -333,6 +267,10 @@ public class Screen {
                     Supplier<Vector3f> pixelNormalSupplier = normalMap == null
                         ? () -> v1n.mul(w1).plus(v2n.mul(w2)).plus(v3n.mul(w3))
                         : () -> transform.multiply(new Vector4f(normalArr[0] * 2 - 256f, normalArr[1] * 2 - 256f, normalArr[2] * 2 - 256f, 0)).getXYZ();
+
+                    //comment this line
+//                    pixelNormalSupplier = () -> triangleNormal;
+
                     Vector3f pixelNormal = normalize3(pixelNormalSupplier.get());
                     Vector3f pixelModelPosition = vm1.mul(w1).plus(vm2.mul(w2)).plus(vm3.mul(w3));
 
@@ -355,6 +293,15 @@ public class Screen {
         }
     }
 
+    public void drawTargetCross() {
+        for (int x = width / 2 - 10; x < width / 2 + 10; x++) {
+            bufferedImage.setRGB(x, height / 2, colorOf(new Vector4f(127, 14, 210)));
+        }
+        for (int y = height / 2 - 10; y < height / 2 + 10; y++) {
+            bufferedImage.setRGB(width/2, y, colorOf(new Vector4f(127, 14, 210)));
+        }
+    }
+
     private static Vector4f straightColor(Vector3f cameraPosition, PixelData pixelData) {
         return pixelData.getPixelColor();
     }
@@ -365,4 +312,11 @@ public class Screen {
         return pixelColor.mul((1.f + pixelNormal.dot(negate3(DIFFUSE_LIGHT_DIRECTION))) / 2.f);
     }
 
+    public boolean isObjectSelected() {
+        return isObjectSelected;
+    }
+
+    public Vector3f getSelectedObjectModelCoordinates() {
+        return selectedObjectModelCoordinates;
+    }
 }
