@@ -6,14 +6,13 @@ import static by.pavel.scene.ColorUtil.rgbaVec;
 
 import java.awt.Graphics;
 import java.awt.image.BufferStrategy;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
 import by.pavel.checker.Checker;
+import by.pavel.checker.Checker.Rank;
 import by.pavel.checker.Checker.Side;
 import by.pavel.math.Matrix4f;
 import by.pavel.math.Vector2i;
@@ -21,14 +20,12 @@ import by.pavel.math.Vector3f;
 import by.pavel.math.Vector4f;
 import by.pavel.parser.OBJData;
 import by.pavel.parser.OBJParser;
-import by.pavel.scene.MainWindow.GameState.AnimatedChecker;
-import by.pavel.scene.MainWindow.GameState.Move;
+import by.pavel.scene.GameState.AnimatedChecker;
+import by.pavel.scene.GameState.Move;
 import by.pavel.scene.listener.CameraMouseListener;
 import by.pavel.scene.listener.CheckersKeyboardListener;
 import by.pavel.scene.listener.KeyboardKeyListener;
 import by.pavel.scene.listener.KeyboardModelListener;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 
 public class MainWindow extends JFrame {
 
@@ -41,17 +38,19 @@ public class MainWindow extends JFrame {
     private static final String MODEL_DATA = "src/main/resources/checkers/chessboardg.obj";
     private static final String MODEL_NORMAL_MAP = "";
     private static final String MODEL_SPECULAR_MAP = "";
-    private static final Vector3f LEFT_DOWN_CORNER = new Vector3f(1.032333f, -4.971402f, 2.993278f);
-    private static final Vector3f RIGHT_UPPER_CORNER = new Vector3f(-1.010752f, -4.971262f, 5.038136f);
-    private static final float BOARD_CELL_SIZE = (LEFT_DOWN_CORNER.x - RIGHT_UPPER_CORNER.x) / 8;
-    private static final Vector3f CHECKER_POSITION_X_DELTA = new Vector3f(-BOARD_CELL_SIZE, 0f, 0f);
-    private static final Vector3f CHECKER_POSITION_Z_DELTA = new Vector3f(0f, 0f, BOARD_CELL_SIZE);
-    private static final Vector3f BASE_CHECKER_POSITION = new Vector3f(
+    public static final Vector3f LEFT_DOWN_CORNER = new Vector3f(1.032333f, -4.971402f, 2.993278f);
+    public static final Vector3f RIGHT_UPPER_CORNER = new Vector3f(-1.010752f, -4.971262f, 5.038136f);
+    public static final float BOARD_CELL_SIZE = (LEFT_DOWN_CORNER.x - RIGHT_UPPER_CORNER.x) / 8;
+    public static final Vector3f CHECKER_POSITION_X_DELTA = new Vector3f(-BOARD_CELL_SIZE, 0f, 0f);
+    public static final Vector3f CHECKER_POSITION_Z_DELTA = new Vector3f(0f, 0f, BOARD_CELL_SIZE);
+    public static final Vector3f BASE_CHECKER_POSITION = new Vector3f(
         LEFT_DOWN_CORNER.x - BOARD_CELL_SIZE / 2f,
-        LEFT_DOWN_CORNER.y,
-        LEFT_DOWN_CORNER.z + BOARD_CELL_SIZE / 2f);
+        LEFT_DOWN_CORNER.y + 0.20f,
+        LEFT_DOWN_CORNER.z);
     private static final Vector3f ZERO_VECTOR_3F = new Vector3f(0, 0, 0);
-    private static final Vector3f SQUARE_TRANSITION = new Vector3f(0, 0.01f, 0);
+    public static final Vector3f SQUARE_TRANSITION = new Vector3f(0, 0.01f, 0);
+    private static final Matrix4f QUEEN_ROTATION = Matrix4f.rotation(new Vector3f(3.1415f, 3.1415f, 0));
+    private static final Matrix4f NORMAL_ROTATION = Matrix4f.rotation(new Vector3f(0, 3.1415f, 0));
 
     private Screen screen;
 
@@ -62,181 +61,6 @@ public class MainWindow extends JFrame {
     private final JPanel imagePanel;
     private final List<LightSource> lightSources;
     private final GameState gameState;
-
-    @Data
-    public static class GameState {
-        private Checker[][] board = new Checker[8][8];
-
-        private Checker hoveredChecker;
-        private Checker selectedChecker;
-        private Vector2i hoveredCell;
-        private Side currentSide = Side.WHITE;
-
-        private AnimatedChecker animatedChecker;
-        private AnimatedChecker animatedBeatenChecker;
-
-        private final List<Move> possibleMoves = new ArrayList<>();
-        private final List<Checker> whiteBeaten = new ArrayList<>();
-        private final List<Checker> blackBeaten = new ArrayList<>();
-
-        @Data
-        public static class AnimatedChecker {
-            private final Vector3f sourcePosition;
-            private final Vector3f destinationPosition;
-            private Vector3f currentPosition;
-            private final Checker checker;
-            private long animationStartTime;
-            private long animationEndTime;
-
-            public AnimatedChecker(Vector3f sourcePosition, Vector3f destinationPosition, Checker checker) {
-                this.sourcePosition = sourcePosition;
-                this.destinationPosition = destinationPosition;
-                this.checker = checker;
-                currentPosition = sourcePosition;
-                animationStartTime = System.currentTimeMillis();
-                animationEndTime = System.currentTimeMillis() + 500L;
-            }
-
-            public boolean nextState() {
-                long now = System.currentTimeMillis();
-                if (now > animationEndTime) {
-                    return false;
-                }
-
-                Vector3f delta = destinationPosition.minus(sourcePosition);
-                float dx = delta.x;
-                float dz = delta.z;
-
-                float timeDelta = (now - animationStartTime) / 500.f;
-                float currentY = sourcePosition.y + (float) Math.sin(Math.PI * timeDelta) * 0.5f;
-                float currentX = sourcePosition.x + dx * timeDelta;
-                float currentZ = sourcePosition.z + dz * timeDelta;
-                currentPosition = new Vector3f(currentX, currentY, currentZ);
-                System.out.println(timeDelta);
-
-                return true;
-            }
-        }
-
-        public void setSelectedChecker(Checker checker) {
-            if (checker == null) {
-                selectedChecker = null;
-                possibleMoves.clear();
-            } else if (checker.getSide().equals(currentSide)) {
-                selectedChecker = checker;
-                calculatePossibleMoves(checker);
-            }
-        }
-
-        public void makeMove(Move move) {
-            Vector2i source = move.getSource();
-            Vector2i destination = move.getDestination();
-            MoveState moveState = move.getMoveState();
-            Vector2i beatenPosition = move.getBeatenPosition();
-            Checker currentChecker = board[source.y][source.x];
-
-            animatedChecker = new AnimatedChecker(
-                BASE_CHECKER_POSITION
-                    .plus(CHECKER_POSITION_X_DELTA.mul(source.x))
-                    .plus(CHECKER_POSITION_Z_DELTA.mul(source.y))
-                    .plus(SQUARE_TRANSITION),
-                BASE_CHECKER_POSITION
-                    .plus(CHECKER_POSITION_X_DELTA.mul(destination.x))
-                    .plus(CHECKER_POSITION_Z_DELTA.mul(destination.y))
-                    .plus(SQUARE_TRANSITION),
-                currentChecker
-            );
-
-            if (moveState.equals(MoveState.MOVE_BEAT)) {
-                Checker beatenChecker = board[beatenPosition.y][beatenPosition.x];
-                if (beatenChecker.getSide().equals(Side.WHITE)) {
-                    whiteBeaten.add(beatenChecker);
-                } else {
-                    blackBeaten.add(beatenChecker);
-                }
-                animatedBeatenChecker = new AnimatedChecker(
-                    BASE_CHECKER_POSITION
-                        .plus(CHECKER_POSITION_X_DELTA.mul(beatenPosition.x))
-                        .plus(CHECKER_POSITION_Z_DELTA.mul(beatenPosition.y))
-                        .plus(SQUARE_TRANSITION),
-                    beatenChecker.getSide().equals(Side.WHITE)
-                    ? LEFT_DOWN_CORNER
-                        .plus(CHECKER_POSITION_X_DELTA.mul(-0.5f))
-                        .plus(CHECKER_POSITION_Z_DELTA.mul(whiteBeaten.size()))
-                        .plus(SQUARE_TRANSITION)
-                    : RIGHT_UPPER_CORNER
-                        .plus(CHECKER_POSITION_X_DELTA.mul(0.5f))
-                        .plus(CHECKER_POSITION_Z_DELTA.mul(-blackBeaten.size()))
-                        .plus(SQUARE_TRANSITION),
-                    beatenChecker
-                );
-                board[beatenPosition.y][beatenPosition.x] = null;
-            }
-            board[source.y][source.x] = null;
-            board[destination.y][destination.x] = currentChecker;
-            currentSide = currentSide == Side.WHITE ? Side.BLACK : Side.WHITE;
-        }
-
-        private void calculatePossibleMoves(Checker checker) {
-            Vector2i currentPosition = null;
-            for (int posY = 0; posY < 8; posY++) {
-                for (int posX = 0; posX < 8; posX++) {
-                    if (board[posY][posX] == checker) {
-                        currentPosition = new Vector2i(posX, posY);
-                    }
-                }
-            }
-            if (currentPosition == null) {
-                throw new RuntimeException("Checker not found on the board");
-            }
-            checkPossibleMoves(checker, currentPosition);
-        }
-
-        private void checkPossibleMoves(Checker checker, Vector2i currentPosition) {
-            checkMove(currentPosition, new Vector2i(1, 1), checker).ifPresent(possibleMoves::add);
-            checkMove(currentPosition, new Vector2i(-1, 1), checker).ifPresent(possibleMoves::add);
-            checkMove(currentPosition, new Vector2i(1, -1), checker).ifPresent(possibleMoves::add);
-            checkMove(currentPosition, new Vector2i(-1, -1), checker).ifPresent(possibleMoves::add);
-        }
-
-        @Data
-        @AllArgsConstructor
-        public static class Move {
-            private final MoveState moveState;
-            private final Vector2i source;
-            private final Vector2i destination;
-            private final Vector2i beatenPosition;
-        }
-
-        private enum MoveState {
-            MOVE_OK, MOVE_BEAT
-        }
-
-        private Optional<Move> checkMove(Vector2i current, Vector2i direction, Checker checker) {
-            Vector2i positionToCheck = current.plus(direction);
-            if (checkBound(positionToCheck)) {
-                Checker enemy = board[positionToCheck.y][positionToCheck.x];
-                Side side = checker.getSide();
-                if (enemy == null && (Side.WHITE.equals(side) && direction.y > 0 || Side.BLACK.equals(side) && direction.y < 0)) {
-                    return Optional.of(new Move(MoveState.MOVE_OK, current, positionToCheck, null));
-                } else {
-                    Vector2i beatenPosition = positionToCheck;
-                    positionToCheck = positionToCheck.plus(direction);
-                    if (enemy != null
-                        && !enemy.getSide().equals(side)
-                        && checkBound(positionToCheck)
-                        && board[positionToCheck.y][positionToCheck.x] == null) {
-                        return Optional.of(new Move(MoveState.MOVE_BEAT, current, positionToCheck, beatenPosition));
-                    }
-                }
-            }
-            return Optional.empty();
-        }
-
-        private boolean checkBound(Vector2i v) {
-            return v.x >= 0 && v.x < 8 && v.y < 8 && v.y >= 0;
-        }
-    }
 
     public MainWindow(int width, int height) {
         super("WINDOW");
@@ -264,7 +88,7 @@ public class MainWindow extends JFrame {
                 AnimatedChecker animatedChecker = gameState.getAnimatedChecker();
                 for (int y = 0; y < 8; y++) {
                     for (int x = 0; x < 8; x++) {
-                        Checker checker = gameState.board[y][x];
+                        Checker checker = gameState.getChecker(x, y);
                         if (checker != null) {
                             Vector3f xDelta = CHECKER_POSITION_X_DELTA.mul(x);
                             Vector3f zDelta = CHECKER_POSITION_Z_DELTA.mul(y);
@@ -274,9 +98,14 @@ public class MainWindow extends JFrame {
                             } else {
                                 checkerModel.setTranslation(Matrix4f.translation(BASE_CHECKER_POSITION.plus(xDelta).plus(zDelta)));
                             }
+                            if (checker.getRank().equals(Rank.QUEEN)) {
+                                checkerModel.setRotation(QUEEN_ROTATION);
+                            } else {
+                                checkerModel.setRotation(NORMAL_ROTATION);
+                            }
                             screen.drawPhong(checkerColor, checkerModel);
                             if (screen.isObjectSelected()) {
-                                gameState.hoveredChecker = checker;
+                                gameState.setHoveredChecker(checker);
                                 anyHovered = true;
                             }
                         }
@@ -286,7 +115,7 @@ public class MainWindow extends JFrame {
                     gameState.setAnimatedChecker(null);
                 }
                 if (!anyHovered) {
-                    gameState.hoveredChecker = null;
+                    gameState.setHoveredChecker(null);
                 }
 
                 lightSources.forEach(
@@ -306,8 +135,8 @@ public class MainWindow extends JFrame {
                 }
                 gameState.setHoveredCell(hoveredCell);
 
-                for (Move move : gameState.possibleMoves) {
-                    Vector2i destination = move.destination;
+                for (Move move : gameState.getPossibleMoves()) {
+                    Vector2i destination = move.getDestination();
                     squareModel.setTranslation(Matrix4f.translation(
                         LEFT_DOWN_CORNER
                             .plus(CHECKER_POSITION_X_DELTA.mul(destination.x + 1))
@@ -321,9 +150,14 @@ public class MainWindow extends JFrame {
                 }
 
                 List<Checker> whiteBeaten = gameState.getWhiteBeaten();
-                AnimatedChecker animatedBeatenChecker = gameState.animatedBeatenChecker;
+                AnimatedChecker animatedBeatenChecker = gameState.getAnimatedBeatenChecker();
                 for (int i = 0; i < whiteBeaten.size(); i++) {
                     Checker checker = whiteBeaten.get(i);
+                    if (checker.getRank().equals(Rank.QUEEN)) {
+                        checkerModel.setRotation(QUEEN_ROTATION);
+                    } else {
+                        checkerModel.setRotation(NORMAL_ROTATION);
+                    }
                     if (animatedBeatenChecker != null && animatedBeatenChecker.getChecker() == checker) {
                         checkerModel.setTranslation(Matrix4f.translation(animatedBeatenChecker.getCurrentPosition()));
                     } else {
@@ -341,6 +175,11 @@ public class MainWindow extends JFrame {
                 List<Checker> blackBeaten = gameState.getBlackBeaten();
                 for (int i = 0; i < blackBeaten.size(); i++) {
                     Checker checker = blackBeaten.get(i);
+                    if (checker.getRank().equals(Rank.QUEEN)) {
+                        checkerModel.setRotation(QUEEN_ROTATION);
+                    } else {
+                        checkerModel.setRotation(NORMAL_ROTATION);
+                    }
                     if (animatedBeatenChecker != null && animatedBeatenChecker.getChecker() == checker) {
                         checkerModel.setTranslation(Matrix4f.translation(animatedBeatenChecker.getCurrentPosition()));
                     } else {
@@ -371,7 +210,7 @@ public class MainWindow extends JFrame {
 
     private Vector4f getCheckerColor(Checker checker) {
         Vector4f checkerColor;
-        if (gameState.hoveredChecker == checker && gameState.selectedChecker == null || gameState.selectedChecker == checker) {
+        if (gameState.getHoveredChecker() == checker && gameState.getSelectedChecker() == null || gameState.getSelectedChecker() == checker) {
             if (checker.getSide() == Side.WHITE) {
                 checkerColor = rgbaVec(colorOf(0, 255, 0, 255));
             } else {
@@ -434,11 +273,11 @@ public class MainWindow extends JFrame {
             null,
             null);
 
-        OBJData checkerData = parser.parseFile("src/main/resources/checkers/checker.obj");
+        OBJData checkerData = parser.parseFile("src/main/resources/models/model4.obj");
         checkerModel = new Model(
             Matrix4f.translation(ZERO_VECTOR_3F),
-            Matrix4f.rotation(ZERO_VECTOR_3F),
-            Matrix4f.scale(new Vector3f(0.075f, 0.075f, 0.075f)),
+            NORMAL_ROTATION,
+            Matrix4f.scale(new Vector3f(0.005f, 0.005f, 0.005f)),
             checkerData.getVertices(),
             checkerData.getNormals(),
             checkerData.getSurfaces(),
@@ -467,9 +306,9 @@ public class MainWindow extends JFrame {
             for (int x = 0; x < 8; x++) {
                 if (y % 2 == 0 && x % 2 == 1 || y % 2 == 1 && x % 2 == 0) {
                     if (y < 3) {
-                        gameState.board[y][x] = new Checker(Side.WHITE);
+                        gameState.setChecker(x, y, new Checker(Side.WHITE));
                     } else if (y >= 5) {
-                        gameState.board[y][x] = new Checker(Side.BLACK);
+                        gameState.setChecker(x, y, new Checker(Side.BLACK));
                     }
                 }
             }

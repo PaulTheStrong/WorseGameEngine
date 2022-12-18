@@ -1,10 +1,7 @@
 package by.pavel;
 
-import by.pavel.parser.OBJData;
 import by.pavel.parser.OBJParser;
 import by.pavel.scene.MainWindow;
-
-import javax.swing.*;
 
 public class App {
 

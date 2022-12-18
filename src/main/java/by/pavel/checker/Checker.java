@@ -1,20 +1,21 @@
 package by.pavel.checker;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
 @Data
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class Checker {
 
     public enum Side {
         WHITE, BLACK
     }
 
-    public enum State {
-        NORMAL, QUEEN, OUT
+    public enum Rank {
+        NORMAL, QUEEN
     }
 
-    private Side side;
+    private final Side side;
+    private Rank rank = Rank.NORMAL;
 
 }

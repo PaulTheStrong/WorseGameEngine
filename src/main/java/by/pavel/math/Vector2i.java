@@ -13,6 +13,10 @@ public class Vector2i {
         return new Vector2i(x + other.x, y + other.y);
     }
 
+    public Vector2i mul(int mul) {
+        return new Vector2i(x * mul, y * mul);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

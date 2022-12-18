@@ -15,7 +15,7 @@ public class Camera {
 
     private float speed;
     private float yaw = 90;
-    private float pitch = 0;
+    private float pitch = -45;
 
     private Vector3f eye;
     private Vector3f target;

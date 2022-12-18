@@ -27,7 +27,7 @@ public class CameraMouseListener implements MouseMotionListener, MouseListener {
 
     @Override
     public void mouseMoved(MouseEvent e) {
-        Mouse.getInstance().setX(e.getX());
+        Mouse.getInstance().setX(e.getX() - 8);
         Mouse.getInstance().setY(630 - e.getY());
     }
 

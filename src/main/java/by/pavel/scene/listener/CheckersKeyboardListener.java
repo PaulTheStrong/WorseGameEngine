@@ -5,7 +5,7 @@ import java.awt.event.KeyListener;
 
 import by.pavel.checker.Checker;
 import by.pavel.math.Vector2i;
-import by.pavel.scene.MainWindow.GameState;
+import by.pavel.scene.GameState;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -35,7 +35,9 @@ public class CheckersKeyboardListener implements KeyListener {
                         .findFirst()
                         .ifPresent(gameState::makeMove);
                 }
-                gameState.setSelectedChecker(null);
+                if (!gameState.isHasToBeatNext()) {
+                    gameState.setSelectedChecker(null);
+                }
             }
         }
     }
